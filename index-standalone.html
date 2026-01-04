@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pencarian Lokasi - SIG (Tanpa Database)</title>
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+        header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      header p {
+        font-size: 1.1em;
+        opacity: 0.9;
+      }
+
+      .badge-info {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.3);
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        margin-top: 10px;
+      }
+
+      .search-container {
+        padding: 30px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .search-box {
+        display: flex;
+        gap: 10px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .search-input {
+        flex: 1;
+        padding: 15px 20px;
+        font-size: 16px;
+        border: 2px solid #ddd;
+        border-radius: 50px;
+        outline: none;
+        transition: all 0.3s;
+      }
+
+      .search-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .search-btn {
+        padding: 15px 40px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .search-btn:hover {
+        transform: scale(1.05);
+      }
+
+      .search-btn:active {
+        transform: scale(0.98);
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 0;
+        min-height: 600px;
+      }
+
+      .results-panel {
+        padding: 30px;
+        background: #f8f9fa;
+        overflow-y: auto;
+        max-height: 600px;
+      }
+
+      .results-header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .results-header h2 {
+        color: #333;
+        font-size: 1.5em;
+      }
+
+      .results-count {
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .result-item {
+        background: white;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: all 0.3s;
+        border-left: 4px solid #667eea;
+      }
+
+      .result-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        border-left-color: #764ba2;
+      }
+
+      .result-item.active {
+        background: #e7f3ff;
+        border-left-color: #2196f3;
+      }
+
+      .result-name {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 8px;
+      }
+
+      .result-coords {
+        color: #666;
+        font-size: 0.9em;
+      }
+
+      .map-container {
+        position: relative;
+      }
+
+      #map {
+        height: 600px;
+        width: 100%;
+      }
+
+      .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+      }
+
+      .no-results-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+      }
+
+      .info-message {
+        background: #e7f3ff;
+        color: #1976d2;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .badge {
+        display: inline-block;
+        background: #4caf50;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 0.7em;
+        margin-left: 10px;
+      }
+
+      @media (max-width: 968px) {
+        .content {
+          grid-template-columns: 1fr;
+        }
+
+        .results-panel {
+          max-height: 300px;
+        }
+
+        #map {
+          height: 400px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🔍 Pencarian Lokasi</h1>
+        <p>Sistem Informasi Geografis - Cari lokasi fasilitas umum <span class="badge">Tanpa Database</span></p>
+        <div class="badge-info">📍 141 Lokasi di Seluruh Indonesia (81 Lokasi di Jepara)</div>
+      </header>
+
+      <div class="search-container">
+        <div class="search-box">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Cari lokasi... (contoh: Jakarta, Monas, Bandara, Rumah Sakit)"
+            onkeypress="if(event.key === 'Enter') cariLokasi()"
+          />
+          <button class="search-btn" onclick="cariLokasi()">
+            🔍 Cari
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="results-panel">
+          <div class="results-header">
+            <h2>Hasil Pencarian</h2>
+            <div class="results-count" id="resultsCount">
+              Masukkan kata kunci untuk mencari
+            </div>
+          </div>
+          <div id="resultsContainer">
+            <div class="info-message">
+              💡 Ketik nama lokasi atau kota di kotak pencarian di atas<br>
+              <small>Contoh: Jakarta, Bandung, Yogyakarta, Surabaya, Bali, Medan, Makassar</small><br>
+              <button onclick="tampilkanSemuaLokasi()" style="margin-top: 10px; padding: 8px 15px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                📋 Tampilkan Semua Lokasi (141 lokasi)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+      // Data lokasi statis - Seluruh Indonesia (tidak perlu database)
+      var dataLokasi = [
+        // DKI Jakarta
+        { id: 1, nama: "Monas Jakarta", latitude: -6.175392, longitude: 106.827153, kota: "Jakarta" },
+        { id: 2, nama: "Bandara Soekarno-Hatta Jakarta", latitude: -6.125567, longitude: 106.655997, kota: "Jakarta" },
+        { id: 3, nama: "Rumah Sakit Cipto Mangunkusumo Jakarta", latitude: -6.194444, longitude: 106.822222, kota: "Jakarta" },
+        { id: 4, nama: "Stasiun Gambir Jakarta", latitude: -6.175833, longitude: 106.832222, kota: "Jakarta" },
+        { id: 5, nama: "Taman Mini Indonesia Indah Jakarta", latitude: -6.302778, longitude: 106.894444, kota: "Jakarta" },
+        
+        // Jawa Barat
+        { id: 6, nama: "Bandara Husein Sastranegara Bandung", latitude: -6.900556, longitude: 107.576389, kota: "Bandung" },
+        { id: 7, nama: "Rumah Sakit Hasan Sadikin Bandung", latitude: -6.901944, longitude: 107.608056, kota: "Bandung" },
+        { id: 8, nama: "Gedung Sate Bandung", latitude: -6.902778, longitude: 107.618611, kota: "Bandung" },
+        { id: 9, nama: "Tangkuban Perahu Bandung", latitude: -6.770000, longitude: 107.600000, kota: "Bandung" },
+        { id: 10, nama: "Stasiun Bandung", latitude: -6.917222, longitude: 107.608056, kota: "Bandung" },
+        
+        // Jawa Tengah
+        { id: 11, nama: "Candi Borobudur Magelang", latitude: -7.607778, longitude: 110.203889, kota: "Magelang" },
+        { id: 12, nama: "Candi Prambanan Yogyakarta", latitude: -7.752222, longitude: 110.491667, kota: "Yogyakarta" },
+        { id: 13, nama: "Keraton Yogyakarta", latitude: -7.805278, longitude: 110.364167, kota: "Yogyakarta" },
+        { id: 14, nama: "Malioboro Yogyakarta", latitude: -7.795278, longitude: 110.365833, kota: "Yogyakarta" },
+        { id: 15, nama: "Bandara Adisutjipto Yogyakarta", latitude: -7.788056, longitude: 110.431667, kota: "Yogyakarta" },
+        { id: 16, nama: "Rumah Sakit Dr. Sardjito Yogyakarta", latitude: -7.767222, longitude: 110.371111, kota: "Yogyakarta" },
+        { id: 17, nama: "Stasiun Tugu Yogyakarta", latitude: -7.789167, longitude: 110.363333, kota: "Yogyakarta" },
+        { id: 18, nama: "Lawang Sewu Semarang", latitude: -6.984167, longitude: 110.409167, kota: "Semarang" },
+        { id: 19, nama: "Bandara Ahmad Yani Semarang", latitude: -6.975556, longitude: 110.374167, kota: "Semarang" },
+        
+        // Jawa Tengah - Jepara (Fasilitas Umum Lengkap)
+        { id: 20, nama: "Rumah Sakit Umum Daerah (RSUD) R. A. Kartini Jepara", latitude: -6.595833, longitude: 110.671111, kota: "Jepara" },
+        { id: 21, nama: "Rumah Sakit Islam Jepara", latitude: -6.593889, longitude: 110.668333, kota: "Jepara" },
+        { id: 22, nama: "Rumah Sakit Mitra Sehat Jepara", latitude: -6.591667, longitude: 110.665833, kota: "Jepara" },
+        { id: 23, nama: "Puskesmas Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 24, nama: "Puskesmas Tahunan Jepara", latitude: -6.583333, longitude: 110.666667, kota: "Jepara" },
+        { id: 25, nama: "Puskesmas Mlonggo Jepara", latitude: -6.616667, longitude: 110.683333, kota: "Jepara" },
+        { id: 26, nama: "Puskesmas Bangsri Jepara", latitude: -6.550000, longitude: 110.700000, kota: "Jepara" },
+        { id: 27, nama: "Puskesmas Keling Jepara", latitude: -6.516667, longitude: 110.733333, kota: "Jepara" },
+        { id: 28, nama: "Pelabuhan Jepara", latitude: -6.583333, longitude: 110.666667, kota: "Jepara" },
+        { id: 29, nama: "Pelabuhan Kartini Jepara", latitude: -6.580000, longitude: 110.670000, kota: "Jepara" },
+        { id: 30, nama: "Stasiun Jepara", latitude: -6.595000, longitude: 110.670000, kota: "Jepara" },
+        { id: 31, nama: "Terminal Bus Jepara", latitude: -6.593333, longitude: 110.668333, kota: "Jepara" },
+        { id: 32, nama: "Pasar Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 33, nama: "Pasar Tahunan Jepara", latitude: -6.583333, longitude: 110.666667, kota: "Jepara" },
+        { id: 34, nama: "Pasar Mlonggo Jepara", latitude: -6.616667, longitude: 110.683333, kota: "Jepara" },
+        { id: 35, nama: "Mall Jepara", latitude: -6.592500, longitude: 110.667500, kota: "Jepara" },
+        { id: 36, nama: "Pusat Perbelanjaan Jepara", latitude: -6.591667, longitude: 110.666667, kota: "Jepara" },
+        { id: 37, nama: "Universitas Islam Nahdlatul Ulama (UNISNU) Jepara", latitude: -6.596667, longitude: 110.672222, kota: "Jepara" },
+        { id: 38, nama: "Sekolah Menengah Atas (SMA) Negeri 1 Jepara", latitude: -6.595000, longitude: 110.670000, kota: "Jepara" },
+        { id: 39, nama: "SMA Negeri 2 Jepara", latitude: -6.593333, longitude: 110.668333, kota: "Jepara" },
+        { id: 40, nama: "SMA Negeri 3 Jepara", latitude: -6.591667, longitude: 110.666667, kota: "Jepara" },
+        { id: 41, nama: "SMK Negeri 1 Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 42, nama: "SMK Negeri 2 Jepara", latitude: -6.592500, longitude: 110.667500, kota: "Jepara" },
+        { id: 43, nama: "SMP Negeri 1 Jepara", latitude: -6.595833, longitude: 110.671111, kota: "Jepara" },
+        { id: 44, nama: "SMP Negeri 2 Jepara", latitude: -6.593889, longitude: 110.668889, kota: "Jepara" },
+        { id: 45, nama: "SD Negeri Jepara", latitude: -6.594722, longitude: 110.669722, kota: "Jepara" },
+        { id: 46, nama: "Masjid Agung Baitul Makmur Jepara", latitude: -6.595278, longitude: 110.670278, kota: "Jepara" },
+        { id: 47, nama: "Masjid Al Ikhlas Jepara", latitude: -6.593611, longitude: 110.668611, kota: "Jepara" },
+        { id: 48, nama: "Gereja Kristen Jawa Jepara", latitude: -6.592222, longitude: 110.667222, kota: "Jepara" },
+        { id: 49, nama: "Gereja Katolik Jepara", latitude: -6.591111, longitude: 110.666111, kota: "Jepara" },
+        { id: 50, nama: "Pantai Bandengan Jepara", latitude: -6.550000, longitude: 110.700000, kota: "Jepara" },
+        { id: 51, nama: "Pantai Kartini Jepara", latitude: -6.580000, longitude: 110.670000, kota: "Jepara" },
+        { id: 52, nama: "Pantai Tirta Samudra Jepara", latitude: -6.566667, longitude: 110.683333, kota: "Jepara" },
+        { id: 53, nama: "Pantai Blebak Jepara", latitude: -6.533333, longitude: 110.716667, kota: "Jepara" },
+        { id: 54, nama: "Pantai Ombak Mati Jepara", latitude: -6.516667, longitude: 110.733333, kota: "Jepara" },
+        { id: 55, nama: "Museum R.A. Kartini Jepara", latitude: -6.595833, longitude: 110.671111, kota: "Jepara" },
+        { id: 56, nama: "Benteng Portugis Jepara", latitude: -6.583333, longitude: 110.666667, kota: "Jepara" },
+        { id: 57, nama: "Alun-Alun Jepara", latitude: -6.594722, longitude: 110.669722, kota: "Jepara" },
+        { id: 58, nama: "Kantor Bupati Jepara", latitude: -6.595278, longitude: 110.670278, kota: "Jepara" },
+        { id: 59, nama: "Kantor DPRD Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 60, nama: "Kantor Polres Jepara", latitude: -6.593333, longitude: 110.668333, kota: "Jepara" },
+        { id: 61, nama: "Kantor Kodim Jepara", latitude: -6.592500, longitude: 110.667500, kota: "Jepara" },
+        { id: 62, nama: "Kantor Kecamatan Jepara", latitude: -6.594444, longitude: 110.669444, kota: "Jepara" },
+        { id: 63, nama: "Kantor Kelurahan Jepara", latitude: -6.593889, longitude: 110.668889, kota: "Jepara" },
+        { id: 64, nama: "Bank BRI Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 65, nama: "Bank BCA Jepara", latitude: -6.593333, longitude: 110.668333, kota: "Jepara" },
+        { id: 66, nama: "Bank Mandiri Jepara", latitude: -6.592500, longitude: 110.667500, kota: "Jepara" },
+        { id: 67, nama: "Bank BNI Jepara", latitude: -6.591667, longitude: 110.666667, kota: "Jepara" },
+        { id: 68, nama: "Bank Jateng Jepara", latitude: -6.592222, longitude: 110.667222, kota: "Jepara" },
+        { id: 69, nama: "Kantor Pos Jepara", latitude: -6.594722, longitude: 110.669722, kota: "Jepara" },
+        { id: 70, nama: "Kantor Telkom Jepara", latitude: -6.593611, longitude: 110.668611, kota: "Jepara" },
+        { id: 71, nama: "Kantor PLN Jepara", latitude: -6.592778, longitude: 110.667778, kota: "Jepara" },
+        { id: 72, nama: "Kantor PDAM Jepara", latitude: -6.591944, longitude: 110.666944, kota: "Jepara" },
+        { id: 73, nama: "Rumah Makan Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 74, nama: "Hotel Jepara", latitude: -6.593333, longitude: 110.668333, kota: "Jepara" },
+        { id: 75, nama: "Hotel Kartini Jepara", latitude: -6.592500, longitude: 110.667500, kota: "Jepara" },
+        { id: 76, nama: "Hotel Puri Jepara", latitude: -6.591667, longitude: 110.666667, kota: "Jepara" },
+        { id: 77, nama: "Apotek Jepara", latitude: -6.594444, longitude: 110.669444, kota: "Jepara" },
+        { id: 78, nama: "Apotek Kimia Farma Jepara", latitude: -6.593889, longitude: 110.668889, kota: "Jepara" },
+        { id: 79, nama: "Apotek Guardian Jepara", latitude: -6.592778, longitude: 110.667778, kota: "Jepara" },
+        { id: 80, nama: "SPBU Jepara", latitude: -6.595000, longitude: 110.670000, kota: "Jepara" },
+        { id: 81, nama: "SPBU Tahunan Jepara", latitude: -6.583333, longitude: 110.666667, kota: "Jepara" },
+        { id: 82, nama: "SPBU Mlonggo Jepara", latitude: -6.616667, longitude: 110.683333, kota: "Jepara" },
+        { id: 83, nama: "Bengkel Mobil Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 84, nama: "Bengkel Motor Jepara", latitude: -6.593333, longitude: 110.668333, kota: "Jepara" },
+        { id: 85, nama: "Toko Ukir Jepara", latitude: -6.592500, longitude: 110.667500, kota: "Jepara" },
+        { id: 86, nama: "Sentra Kerajinan Ukir Jepara", latitude: -6.591667, longitude: 110.666667, kota: "Jepara" },
+        { id: 87, nama: "Pusat Kerajinan Mebel Jepara", latitude: -6.592222, longitude: 110.667222, kota: "Jepara" },
+        { id: 88, nama: "Lapangan Olahraga Jepara", latitude: -6.594722, longitude: 110.669722, kota: "Jepara" },
+        { id: 89, nama: "Gedung Olahraga Jepara", latitude: -6.593611, longitude: 110.668611, kota: "Jepara" },
+        { id: 90, nama: "Perpustakaan Daerah Jepara", latitude: -6.592778, longitude: 110.667778, kota: "Jepara" },
+        { id: 91, nama: "Taman Kota Jepara", latitude: -6.594167, longitude: 110.669167, kota: "Jepara" },
+        { id: 92, nama: "Taman R.A. Kartini Jepara", latitude: -6.595000, longitude: 110.670000, kota: "Jepara" },
+        { id: 93, nama: "Tempat Wisata Air Terjun Jepara", latitude: -6.550000, longitude: 110.700000, kota: "Jepara" },
+        { id: 94, nama: "Gunung Muria Jepara", latitude: -6.616667, longitude: 110.883333, kota: "Jepara" },
+        { id: 95, nama: "Pulau Karimunjawa Jepara", latitude: -5.816667, longitude: 110.450000, kota: "Jepara" },
+        { id: 96, nama: "Dermaga Karimunjawa Jepara", latitude: -5.816667, longitude: 110.450000, kota: "Jepara" },
+        { id: 97, nama: "Bandara Dewadaru Karimunjawa", latitude: -5.816667, longitude: 110.450000, kota: "Jepara" },
+        { id: 98, nama: "Rumah Sakit Karimunjawa", latitude: -5.816667, longitude: 110.450000, kota: "Jepara" },
+        { id: 99, nama: "Puskesmas Karimunjawa", latitude: -5.816667, longitude: 110.450000, kota: "Jepara" },
+        { id: 100, nama: "Sekolah Karimunjawa", latitude: -5.816667, longitude: 110.450000, kota: "Jepara" },
+        
+        // Jawa Timur
+        { id: 101, nama: "Tugu Pahlawan Surabaya", latitude: -7.245833, longitude: 112.737778, kota: "Surabaya" },
+        { id: 102, nama: "Rumah Sakit Dr. Soetomo Surabaya", latitude: -7.263889, longitude: 112.758333, kota: "Surabaya" },
+        { id: 103, nama: "Bandara Juanda Surabaya", latitude: -7.379722, longitude: 112.786944, kota: "Surabaya" },
+        { id: 104, nama: "Stasiun Gubeng Surabaya", latitude: -7.263611, longitude: 112.752222, kota: "Surabaya" },
+        { id: 105, nama: "Gunung Bromo Malang", latitude: -7.942500, longitude: 112.953056, kota: "Malang" },
+        { id: 106, nama: "Jatim Park Malang", latitude: -7.983333, longitude: 112.683333, kota: "Malang" },
+        
+        // Bali
+        { id: 107, nama: "Bandara Ngurah Rai Denpasar", latitude: -8.748056, longitude: 115.166944, kota: "Denpasar" },
+        { id: 108, nama: "Pantai Kuta Bali", latitude: -8.716667, longitude: 115.166667, kota: "Bali" },
+        { id: 109, nama: "Pura Tanah Lot Bali", latitude: -8.621111, longitude: 115.086389, kota: "Bali" },
+        { id: 110, nama: "Ubud Bali", latitude: -8.506944, longitude: 115.262500, kota: "Bali" },
+        { id: 111, nama: "Rumah Sakit Sanglah Denpasar", latitude: -8.680556, longitude: 115.213889, kota: "Denpasar" },
+        
+        // Sumatera Utara
+        { id: 112, nama: "Danau Toba Medan", latitude: 2.683333, longitude: 98.883333, kota: "Medan" },
+        { id: 113, nama: "Bandara Kualanamu Medan", latitude: 3.642222, longitude: 98.885278, kota: "Medan" },
+        { id: 114, nama: "Rumah Sakit H. Adam Malik Medan", latitude: 3.583333, longitude: 98.683333, kota: "Medan" },
+        { id: 115, nama: "Istana Maimun Medan", latitude: 3.575000, longitude: 98.683333, kota: "Medan" },
+        
+        // Sumatera Barat
+        { id: 116, nama: "Jam Gadang Bukittinggi", latitude: -0.305556, longitude: 100.369167, kota: "Bukittinggi" },
+        { id: 117, nama: "Bandara Minangkabau Padang", latitude: -0.786944, longitude: 100.281111, kota: "Padang" },
+        { id: 118, nama: "Pantai Padang", latitude: -0.950000, longitude: 100.366667, kota: "Padang" },
+        
+        // Riau
+        { id: 119, nama: "Bandara Sultan Syarif Kasim II Pekanbaru", latitude: 0.461111, longitude: 101.444444, kota: "Pekanbaru" },
+        { id: 120, nama: "Jembatan Siak Pekanbaru", latitude: 0.516667, longitude: 101.450000, kota: "Pekanbaru" },
+        
+        // Kalimantan
+        { id: 121, nama: "Bandara Syamsudin Noor Banjarmasin", latitude: -3.442222, longitude: 114.762500, kota: "Banjarmasin" },
+        { id: 122, nama: "Pasar Terapung Banjarmasin", latitude: -3.316667, longitude: 114.583333, kota: "Banjarmasin" },
+        { id: 123, nama: "Bandara Sepinggan Balikpapan", latitude: -1.268611, longitude: 116.894444, kota: "Balikpapan" },
+        { id: 124, nama: "Bandara Supadio Pontianak", latitude: -0.150833, longitude: 109.403889, kota: "Pontianak" },
+        
+        // Sulawesi
+        { id: 125, nama: "Bandara Sultan Hasanuddin Makassar", latitude: -5.061667, longitude: 119.554167, kota: "Makassar" },
+        { id: 126, nama: "Pantai Losari Makassar", latitude: -5.133333, longitude: 119.400000, kota: "Makassar" },
+        { id: 127, nama: "Rumah Sakit Wahidin Sudirohusodo Makassar", latitude: -5.150000, longitude: 119.416667, kota: "Makassar" },
+        { id: 128, nama: "Bandara Sam Ratulangi Manado", latitude: 1.549167, longitude: 124.925556, kota: "Manado" },
+        { id: 129, nama: "Bunaken Manado", latitude: 1.616667, longitude: 124.766667, kota: "Manado" },
+        
+        // Papua
+        { id: 130, nama: "Bandara Sentani Jayapura", latitude: -2.576944, longitude: 140.516389, kota: "Jayapura" },
+        { id: 131, nama: "Rumah Sakit Dok II Jayapura", latitude: -2.533333, longitude: 140.700000, kota: "Jayapura" },
+        
+        // Nusa Tenggara
+        { id: 132, nama: "Bandara Lombok Praya", latitude: -8.757222, longitude: 116.276667, kota: "Lombok" },
+        { id: 133, nama: "Pantai Kuta Lombok", latitude: -8.883333, longitude: 116.283333, kota: "Lombok" },
+        { id: 134, nama: "Bandara El Tari Kupang", latitude: -10.171667, longitude: 123.671111, kota: "Kupang" },
+        
+        // Aceh
+        { id: 135, nama: "Masjid Raya Baiturrahman Banda Aceh", latitude: 5.548056, longitude: 95.319167, kota: "Banda Aceh" },
+        { id: 136, nama: "Bandara Sultan Iskandar Muda Banda Aceh", latitude: 5.523333, longitude: 95.420278, kota: "Banda Aceh" },
+        
+        // Lampung
+        { id: 137, nama: "Bandara Radin Inten II Bandar Lampung", latitude: -5.240556, longitude: 105.178611, kota: "Bandar Lampung" },
+        
+        // Jambi
+        { id: 138, nama: "Bandara Sultan Thaha Jambi", latitude: -1.638056, longitude: 103.644444, kota: "Jambi" },
+        
+        // Palembang
+        { id: 139, nama: "Bandara Sultan Mahmud Badaruddin II Palembang", latitude: -2.898056, longitude: 104.700000, kota: "Palembang" },
+        { id: 140, nama: "Jembatan Ampera Palembang", latitude: -2.991667, longitude: 104.763889, kota: "Palembang" },
+        
+        // Bengkulu
+        { id: 141, nama: "Bandara Fatmawati Soekarno Bengkulu", latitude: -3.863889, longitude: 102.339167, kota: "Bengkulu" },
+      ];
+
+      // Inisialisasi peta - view seluruh Indonesia
+      var map = L.map("map").setView([-2.5, 118.0], 5);
+      var markers = [];
+      var currentResults = [];
+
+      // Layer OpenStreetMap
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+      }).addTo(map);
+
+      // Fungsi pencarian lokasi (tanpa database)
+      function cariLokasi() {
+        var keyword = document.getElementById("searchInput").value.trim();
+
+        if (!keyword) {
+          // Jika kosong, tampilkan semua lokasi
+          currentResults = dataLokasi;
+          tampilkanHasil(dataLokasi, dataLokasi.length);
+          tampilkanDiPeta(dataLokasi);
+          return;
+        }
+
+        var keywordLower = keyword.toLowerCase();
+
+        // Cari di data statis - lebih fleksibel (bisa cari nama atau kota)
+        var hasil = dataLokasi.filter(function(lokasi) {
+          var namaLower = lokasi.nama.toLowerCase();
+          var kotaLower = (lokasi.kota || "").toLowerCase();
+          // Cari dengan beberapa variasi - nama atau kota
+          return namaLower.includes(keywordLower) || 
+                 kotaLower.includes(keywordLower) ||
+                 namaLower.indexOf(keywordLower) !== -1 ||
+                 keywordLower.split(' ').some(function(word) {
+                   return namaLower.includes(word) || kotaLower.includes(word);
+                 });
+        });
+
+        // Hapus duplikat berdasarkan nama
+        var uniqueResults = [];
+        var seen = {};
+        hasil.forEach(function(item) {
+          if (!seen[item.nama]) {
+            seen[item.nama] = true;
+            uniqueResults.push(item);
+          }
+        });
+
+        currentResults = uniqueResults;
+        tampilkanHasil(uniqueResults, uniqueResults.length);
+        tampilkanDiPeta(uniqueResults);
+      }
+
+      // Tampilkan semua lokasi saat pertama kali
+      function tampilkanSemuaLokasi() {
+        currentResults = dataLokasi;
+        tampilkanHasil(dataLokasi, dataLokasi.length);
+        tampilkanDiPeta(dataLokasi);
+        document.getElementById("searchInput").value = "";
+      }
+
+      // Tampilkan hasil pencarian
+      function tampilkanHasil(lokasi, count) {
+        var container = document.getElementById("resultsContainer");
+        var countDiv = document.getElementById("resultsCount");
+
+        countDiv.textContent = `Ditemukan ${count} lokasi`;
+
+        if (lokasi.length === 0) {
+          container.innerHTML = `
+            <div class="no-results">
+              <div class="no-results-icon">🔍</div>
+              <p>Tidak ada lokasi yang ditemukan</p>
+              <p style="font-size: 0.9em; margin-top: 10px;">Coba kata kunci lain</p>
+            </div>
+          `;
+          return;
+        }
+
+        var html = "";
+        lokasi.forEach((l, index) => {
+          html += `
+            <div class="result-item" onclick="pilihLokasi(${index})" id="result-${index}">
+              <div class="result-name">📍 ${l.nama}</div>
+              <div class="result-coords">
+                ${l.kota ? '<strong>' + l.kota + '</strong> • ' : ''}
+                Lat: ${parseFloat(l.latitude).toFixed(6)}, 
+                Lng: ${parseFloat(l.longitude).toFixed(6)}
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // Tampilkan lokasi di peta
+      function tampilkanDiPeta(lokasi) {
+        // Hapus marker lama
+        markers.forEach((m) => map.removeLayer(m));
+        markers = [];
+
+        if (lokasi.length === 0) {
+          return;
+        }
+
+        // Tambah marker baru
+        var bounds = [];
+        lokasi.forEach((l) => {
+          var marker = L.marker([
+            parseFloat(l.latitude),
+            parseFloat(l.longitude),
+          ]).addTo(map);
+
+          marker.bindPopup(
+            `<b>${l.nama}</b><br>Lat: ${parseFloat(l.latitude).toFixed(6)}<br>Lng: ${parseFloat(l.longitude).toFixed(6)}`
+          );
+
+          markers.push(marker);
+          bounds.push([parseFloat(l.latitude), parseFloat(l.longitude)]);
+        });
+
+        // Fit bounds untuk menampilkan semua marker
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }
+
+      // Pilih lokasi dari hasil
+      function pilihLokasi(index) {
+        if (!currentResults[index]) return;
+
+        var lokasi = currentResults[index];
+
+        // Hapus active class dari semua item
+        document.querySelectorAll(".result-item").forEach((item) => {
+          item.classList.remove("active");
+        });
+
+        // Tambah active class ke item yang dipilih
+        var item = document.getElementById(`result-${index}`);
+        if (item) {
+          item.classList.add("active");
+        }
+
+        // Fokus ke marker di peta
+        var marker = markers[index];
+        if (marker) {
+          map.setView(
+            [parseFloat(lokasi.latitude), parseFloat(lokasi.longitude)],
+            15
+          );
+          marker.openPopup();
+        }
+      }
+
+      // Tampilkan semua lokasi saat pertama kali dibuka
+      window.addEventListener("load", function () {
+        tampilkanSemuaLokasi();
+      });
+    </script>
+  </body>
+</html>
+

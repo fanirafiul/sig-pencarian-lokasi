@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SIG Pemetaan Lokasi Sederhana (dengan Database)</title>
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #map {
+        height: 500px;
+        width: 100%;
+        margin: 20px 0;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+      }
+      .form-container {
+        background: #f5f5f5;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        box-sizing: border-box;
+      }
+      button {
+        background: #4caf50;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background: #45a049;
+      }
+      .lokasi-list {
+        margin-top: 20px;
+        background: #f9f9f9;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .lokasi-item {
+        padding: 10px;
+        margin: 5px 0;
+        background: white;
+        border-left: 4px solid #4caf50;
+        border-radius: 3px;
+      }
+      .btn-hapus {
+        background: #f44336;
+        padding: 5px 10px;
+        font-size: 12px;
+        float: right;
+      }
+      .btn-hapus:hover {
+        background: #da190b;
+      }
+      .info {
+        background: #e3f2fd;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+      .info a {
+        color: #1976d2;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Sistem Informasi Geografis (SIG) Sederhana</h2>
+    <div class="info">
+      <strong>Mode:</strong> Terhubung dengan Database (Level 4) |
+      <a href="index.html">Gunakan versi tanpa database (Level 1-3)</a>
+    </div>
+    <p>Klik peta untuk menambahkan lokasi atau gunakan form di bawah</p>
+
+    <div id="map"></div>
+
+    <!-- Form Input Lokasi -->
+    <div class="form-container">
+      <h3>Form Tambah Lokasi</h3>
+      <div class="form-group">
+        <label for="namaLokasi">Nama Lokasi:</label>
+        <input
+          type="text"
+          id="namaLokasi"
+          placeholder="Contoh: Rumah Sakit Cipto"
+        />
+      </div>
+      <div class="form-group">
+        <label for="latitude">Latitude:</label>
+        <input
+          type="number"
+          id="latitude"
+          step="0.000001"
+          placeholder="-6.200000"
+        />
+      </div>
+      <div class="form-group">
+        <label for="longitude">Longitude:</label>
+        <input
+          type="number"
+          id="longitude"
+          step="0.000001"
+          placeholder="106.816666"
+        />
+      </div>
+      <button onclick="tambahLokasiDariForm()">
+        Tambah Lokasi ke Database
+      </button>
+    </div>
+
+    <!-- Daftar Lokasi -->
+    <div class="lokasi-list">
+      <h3>Daftar Lokasi dari Database (<span id="jumlahLokasi">0</span>)</h3>
+      <div id="daftarLokasi">Memuat data...</div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+      var map = L.map("map").setView([-6.2, 106.816666], 12);
+      var markers = [];
+
+      // Layer OpenStreetMap
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+      }).addTo(map);
+
+      // Load lokasi dari database saat halaman dimuat
+      function loadLokasiDariDatabase() {
+        fetch("api.php?action=list")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              updateDaftarLokasi(data.data);
+              updateMap(data.data);
+            } else {
+              document.getElementById("daftarLokasi").innerHTML =
+                "<p>Error: " + data.message + "</p>";
+            }
+          })
+          .catch((error) => {
+            document.getElementById("daftarLokasi").innerHTML =
+              "<p>Error memuat data. Pastikan server PHP berjalan.</p>";
+            console.error("Error:", error);
+          });
+      }
+
+      // Update peta dengan marker dari database
+      function updateMap(lokasiArray) {
+        // Hapus marker lama
+        markers.forEach((m) => map.removeLayer(m));
+        markers = [];
+
+        // Tambah marker baru
+        lokasiArray.forEach((lokasi) => {
+          var marker = L.marker([
+            parseFloat(lokasi.latitude),
+            parseFloat(lokasi.longitude),
+          ]).addTo(map);
+          marker.bindPopup(
+            "<b>" +
+              lokasi.nama +
+              "</b><br>" +
+              "Latitude: " +
+              parseFloat(lokasi.latitude).toFixed(6) +
+              "<br>" +
+              "Longitude: " +
+              parseFloat(lokasi.longitude).toFixed(6) +
+              '<br><button onclick="hapusLokasi(' +
+              lokasi.id +
+              ')">Hapus</button>'
+          );
+          markers.push({ marker: marker, id: lokasi.id });
+        });
+      }
+
+      // Event klik peta
+      map.on("click", function (e) {
+        var lat = e.latlng.lat.toFixed(6);
+        var lng = e.latlng.lng.toFixed(6);
+
+        var nama = prompt("Masukkan nama lokasi:", "Lokasi Baru");
+        if (nama) {
+          tambahLokasiKeDatabase(nama, parseFloat(lat), parseFloat(lng));
+        }
+      });
+
+      // Tambah lokasi ke database
+      function tambahLokasiKeDatabase(nama, lat, lng) {
+        fetch("api.php", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nama: nama,
+            latitude: lat,
+            longitude: lng,
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("Lokasi berhasil ditambahkan!");
+              loadLokasiDariDatabase();
+            } else {
+              alert("Error: " + data.message);
+            }
+          })
+          .catch((error) => {
+            alert("Error: Pastikan server PHP berjalan");
+            console.error("Error:", error);
+          });
+      }
+
+      // Tambah lokasi dari form
+      function tambahLokasiDariForm() {
+        var nama = document.getElementById("namaLokasi").value;
+        var lat = parseFloat(document.getElementById("latitude").value);
+        var lng = parseFloat(document.getElementById("longitude").value);
+
+        if (!nama || !lat || !lng) {
+          alert("Harap isi semua field!");
+          return;
+        }
+
+        tambahLokasiKeDatabase(nama, lat, lng);
+
+        // Reset form
+        document.getElementById("namaLokasi").value = "";
+        document.getElementById("latitude").value = "";
+        document.getElementById("longitude").value = "";
+      }
+
+      // Hapus lokasi dari database
+      function hapusLokasi(id) {
+        if (!confirm("Yakin ingin menghapus lokasi ini?")) {
+          return;
+        }
+
+        fetch("api.php?id=" + id, {
+          method: "DELETE",
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("Lokasi berhasil dihapus!");
+              loadLokasiDariDatabase();
+            } else {
+              alert("Error: " + data.message);
+            }
+          })
+          .catch((error) => {
+            alert("Error menghapus lokasi");
+            console.error("Error:", error);
+          });
+      }
+
+      // Update daftar lokasi di sidebar
+      function updateDaftarLokasi(lokasiArray) {
+        var daftarDiv = document.getElementById("daftarLokasi");
+        var jumlahSpan = document.getElementById("jumlahLokasi");
+
+        jumlahSpan.textContent = lokasiArray.length;
+
+        if (lokasiArray.length === 0) {
+          daftarDiv.innerHTML = "<p>Tidak ada lokasi</p>";
+          return;
+        }
+
+        var html = "";
+        lokasiArray.forEach(function (lokasi) {
+          html +=
+            '<div class="lokasi-item">' +
+            "<strong>" +
+            lokasi.nama +
+            "</strong><br>" +
+            "Lat: " +
+            parseFloat(lokasi.latitude).toFixed(6) +
+            ", Lng: " +
+            parseFloat(lokasi.longitude).toFixed(6) +
+            '<button class="btn-hapus" onclick="hapusLokasi(' +
+            lokasi.id +
+            ')">Hapus</button>' +
+            "</div>";
+        });
+
+        daftarDiv.innerHTML = html;
+      }
+
+      // Load data saat halaman dimuat
+      loadLokasiDariDatabase();
+    </script>
+  </body>
+</html>

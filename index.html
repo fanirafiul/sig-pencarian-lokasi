@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pencarian Lokasi - SIG</title>
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      header p {
+        font-size: 1.1em;
+        opacity: 0.9;
+      }
+
+      .search-container {
+        padding: 30px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .search-box {
+        display: flex;
+        gap: 10px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .search-input {
+        flex: 1;
+        padding: 15px 20px;
+        font-size: 16px;
+        border: 2px solid #ddd;
+        border-radius: 50px;
+        outline: none;
+        transition: all 0.3s;
+      }
+
+      .search-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .search-btn {
+        padding: 15px 40px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .search-btn:hover {
+        transform: scale(1.05);
+      }
+
+      .search-btn:active {
+        transform: scale(0.98);
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 0;
+        min-height: 600px;
+      }
+
+      .results-panel {
+        padding: 30px;
+        background: #f8f9fa;
+        overflow-y: auto;
+        max-height: 600px;
+      }
+
+      .results-header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .results-header h2 {
+        color: #333;
+        font-size: 1.5em;
+      }
+
+      .results-count {
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .result-item {
+        background: white;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: all 0.3s;
+        border-left: 4px solid #667eea;
+      }
+
+      .result-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        border-left-color: #764ba2;
+      }
+
+      .result-item.active {
+        background: #e7f3ff;
+        border-left-color: #2196f3;
+      }
+
+      .result-name {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 8px;
+      }
+
+      .result-coords {
+        color: #666;
+        font-size: 0.9em;
+      }
+
+      .map-container {
+        position: relative;
+      }
+
+      #map {
+        height: 600px;
+        width: 100%;
+      }
+
+      .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+      }
+
+      .no-results-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #667eea;
+      }
+
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .info-message {
+        background: #e7f3ff;
+        color: #1976d2;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      @media (max-width: 968px) {
+        .content {
+          grid-template-columns: 1fr;
+        }
+
+        .results-panel {
+          max-height: 300px;
+        }
+
+        #map {
+          height: 400px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🔍 Pencarian Lokasi</h1>
+        <p>Sistem Informasi Geografis - Cari lokasi fasilitas umum</p>
+      </header>
+
+      <div class="search-container">
+        <div class="search-box">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Cari lokasi... (contoh: Jakarta, Monas, Bandara)"
+            onkeypress="if(event.key === 'Enter') cariLokasi()"
+          />
+          <button class="search-btn" onclick="cariLokasi()">
+            🔍 Cari
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="results-panel">
+          <div class="results-header">
+            <h2>Hasil Pencarian</h2>
+            <div class="results-count" id="resultsCount">
+              Masukkan kata kunci untuk mencari
+            </div>
+          </div>
+          <div id="resultsContainer">
+            <div class="info-message">
+              💡 Ketik nama lokasi di kotak pencarian di atas
+            </div>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+      // Inisialisasi peta
+      var map = L.map("map").setView([-6.2, 106.816666], 12);
+      var markers = [];
+      var currentResults = [];
+
+      // Layer OpenStreetMap
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+      }).addTo(map);
+
+      // Fungsi pencarian lokasi
+      function cariLokasi() {
+        var keyword = document.getElementById("searchInput").value.trim();
+
+        if (!keyword) {
+          alert("Masukkan kata kunci pencarian!");
+          return;
+        }
+
+        // Tampilkan loading
+        document.getElementById("resultsContainer").innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>Mencari lokasi...</p>
+          </div>
+        `;
+
+        // Panggil API
+        fetch(`api.php?action=search&keyword=${encodeURIComponent(keyword)}`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              currentResults = data.data;
+              tampilkanHasil(data.data, data.count);
+              tampilkanDiPeta(data.data);
+            } else {
+              document.getElementById("resultsContainer").innerHTML = `
+                <div class="no-results">
+                  <div class="no-results-icon">❌</div>
+                  <p>${data.message || "Terjadi kesalahan"}</p>
+                </div>
+              `;
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            document.getElementById("resultsContainer").innerHTML = `
+              <div class="no-results">
+                <div class="no-results-icon">⚠️</div>
+                <p>Error: Pastikan server PHP berjalan</p>
+                <p style="font-size: 0.8em; margin-top: 10px;">Jalankan: php -S localhost:8000</p>
+              </div>
+            `;
+          });
+      }
+
+      // Tampilkan hasil pencarian
+      function tampilkanHasil(lokasi, count) {
+        var container = document.getElementById("resultsContainer");
+        var countDiv = document.getElementById("resultsCount");
+
+        countDiv.textContent = `Ditemukan ${count} lokasi`;
+
+        if (lokasi.length === 0) {
+          container.innerHTML = `
+            <div class="no-results">
+              <div class="no-results-icon">🔍</div>
+              <p>Tidak ada lokasi yang ditemukan</p>
+              <p style="font-size: 0.9em; margin-top: 10px;">Coba kata kunci lain</p>
+            </div>
+          `;
+          return;
+        }
+
+        var html = "";
+        lokasi.forEach((l, index) => {
+          html += `
+            <div class="result-item" onclick="pilihLokasi(${index})" id="result-${index}">
+              <div class="result-name">📍 ${l.nama}</div>
+              <div class="result-coords">
+                Lat: ${parseFloat(l.latitude).toFixed(6)}, 
+                Lng: ${parseFloat(l.longitude).toFixed(6)}
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // Tampilkan lokasi di peta
+      function tampilkanDiPeta(lokasi) {
+        // Hapus marker lama
+        markers.forEach((m) => map.removeLayer(m));
+        markers = [];
+
+        if (lokasi.length === 0) {
+          return;
+        }
+
+        // Tambah marker baru
+        var bounds = [];
+        lokasi.forEach((l) => {
+          var marker = L.marker([
+            parseFloat(l.latitude),
+            parseFloat(l.longitude),
+          ]).addTo(map);
+
+          marker.bindPopup(
+            `<b>${l.nama}</b><br>Lat: ${parseFloat(l.latitude).toFixed(6)}<br>Lng: ${parseFloat(l.longitude).toFixed(6)}`
+          );
+
+          markers.push(marker);
+          bounds.push([parseFloat(l.latitude), parseFloat(l.longitude)]);
+        });
+
+        // Fit bounds untuk menampilkan semua marker
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }
+
+      // Pilih lokasi dari hasil
+      function pilihLokasi(index) {
+        if (!currentResults[index]) return;
+
+        var lokasi = currentResults[index];
+
+        // Hapus active class dari semua item
+        document.querySelectorAll(".result-item").forEach((item) => {
+          item.classList.remove("active");
+        });
+
+        // Tambah active class ke item yang dipilih
+        var item = document.getElementById(`result-${index}`);
+        if (item) {
+          item.classList.add("active");
+        }
+
+        // Fokus ke marker di peta
+        var marker = markers[index];
+        if (marker) {
+          map.setView(
+            [parseFloat(lokasi.latitude), parseFloat(lokasi.longitude)],
+            15
+          );
+          marker.openPopup();
+        }
+      }
+    </script>
+  </body>
+</html>
